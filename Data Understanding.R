@@ -1,6 +1,7 @@
 # Load necessary libraries
 library(tidyverse)
 library(corrplot)
+library(tidyr)
 
 # Import CSV file
 team_data <- read.csv("Team Summaries.csv")
@@ -36,7 +37,7 @@ cor_matrix <- cor(numeric_cols, use = "complete.obs")
 
 # Plot the correlation matrix
 corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.8, 
-         title = "Correlation Matrix of Numeric Variables", mar=c(0,0,1,0))
+         mar=c(0,0,1,0))
 
 # Visual exploration: scatter plot of offensive rating vs. defensive rating
 ggplot(team_data, aes(x = o_rtg, y = d_rtg, color = playoffs)) +
@@ -113,8 +114,7 @@ attributes_long <- attributes %>%
 ggplot(attributes_long, aes(x = season, y = Value)) +
   geom_line() +
   facet_wrap(~ Attribute, scales = "free_y") +
-  labs(title = "Various Attributes Over Seasons",
-       x = "Season",
+  labs(x = "Season",
        y = "Value") +
   theme_minimal()
 
@@ -131,4 +131,4 @@ ggplot(team_data_long, aes(x = value)) +
   geom_histogram(bins = 30, fill = "skyblue", color = "black") +
   facet_wrap(~ attribute, scales = "free") +
   theme_minimal() +
-  labs(title = "Distribution of Each Attribute", x = "Value", y = "Frequency")
+  labs(x = "Value", y = "Frequency")
