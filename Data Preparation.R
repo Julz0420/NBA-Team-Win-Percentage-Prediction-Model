@@ -1,4 +1,3 @@
-# Load necessary libraries
 library(tidyverse)
 library(corrplot)
 
@@ -54,7 +53,7 @@ team_data_copy$x3p_ar <- ifelse(is.na(team_data_copy$x3p_ar), team_data_copy$x3p
 team_data_copy <- subset(team_data_copy, select = -x3p_ar_mean)
 
 
-# => reduce the number of NA from 153 to 66!!!!
+# => reduce the number of NA from 153 to 66!
 
 
 # ======== same for 'tov_percent' ===================
@@ -67,11 +66,35 @@ team_data_copy$tov_percent <- ifelse(is.na(team_data_copy$tov_percent), team_dat
 
 team_data_copy <- subset(team_data_copy, select = -tov_percent_mean)
 
-# => reduce the number of NA from 34 to 0!!!!
-# => do we need that? what about the other columns, they also only have 34 NA values (except ATTEND and ATTEND_G)????
+# => reduce the number of NA from 34 to 0!
 
 
-# ======== same for 'tov_percent' ===================
+# ======== same for 'opp_tov_percent' ===================
+
+average_opp_tov_percent <- aggregate(opp_tov_percent ~ season, data = team_data_copy, FUN = mean, na.rm = TRUE)
+
+team_data_copy <- merge(team_data_copy, average_opp_tov_percent, by = "season", all.x = TRUE, suffixes = c("", "_mean"))
+
+team_data_copy$opp_tov_percent <- ifelse(is.na(team_data_copy$opp_tov_percent), team_data_copy$opp_tov_percent_mean, team_data_copy$opp_tov_percent)
+
+team_data_copy <- subset(team_data_copy, select = -opp_tov_percent_mean)
+
+# => reduce the number of NA from 34 to 0!
 
 
-#TODO: WHAT IS ATTEND AND ATTENG_G??????
+
+
+# ======== same for 'orb_percent' ===================
+
+average_orb_percent <- aggregate(orb_percent ~ season, data = team_data_copy, FUN = mean, na.rm = TRUE)
+
+team_data_copy <- merge(team_data_copy, average_orb_percent, by = "season", all.x = TRUE, suffixes = c("", "_mean"))
+
+team_data_copy$orb_percent <- ifelse(is.na(team_data_copy$orb_percent), team_data_copy$orb_percent_mean, team_data_copy$orb_percent)
+
+team_data_copy <- subset(team_data_copy, select = -orb_percent_mean)
+
+# => reduce the number of NA from 34 to 0!
+
+
+
