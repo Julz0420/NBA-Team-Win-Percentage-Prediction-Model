@@ -54,6 +54,7 @@ team_data_copy <- subset(team_data_copy, select = -x3p_ar_mean)
 
 
 # => reduce the number of NA from 153 to 66!
+# 66 values are in the years where ABA was merged with NBA and no single value got stored during these years
 
 
 # ======== same for 'tov_percent' ===================
