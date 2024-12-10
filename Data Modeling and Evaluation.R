@@ -111,8 +111,8 @@ library(tidyr)
 
 #MultiLinear Regression and Decision Tree Regression?
 
-# Step 1: Randomly split data into train/validation/test sets (stratified by win_percent)
-set.seed(123) # For reproducibility
+# Step 1: Randomly split data into train/validation/test sets stratified by win_percent
+set.seed(74) # For reproducibility
 train_idx <- createDataPartition(team_data$win_percent, p = 0.7, list = FALSE) # 70% for training
 train_data <- team_data[train_idx, ]
 temp_data <- team_data[-train_idx, ]
@@ -121,7 +121,6 @@ validation_data <- temp_data[val_idx, ]
 test_data <- temp_data[-val_idx, ]
 
 # Separate features and target
-##TODO test it without season. select(-c(win_percent, season)))
 X_train <- as.matrix(train_data %>% select(-win_percent))
 y_train <- train_data$win_percent
 X_validation <- as.matrix(validation_data %>% select(-win_percent))
@@ -129,87 +128,66 @@ y_validation <- validation_data$win_percent
 X_test <- as.matrix(test_data %>% select(-win_percent))
 y_test <- test_data$win_percent
 
+# Train Ridge Regression models for each lambda and evaluate on the validation set
 
-# Ridge Regression (using glmnet)
-# Perform Ridge Regression with cross-validation to find the best lambda
-#TODO is this correct? nfold 5 or 10?
-ridge_model <- cv.glmnet(
+# Setting the range of lambda values
+lambda_seq <- 10^seq(2, -2, by = -.1)
+
+# Initialize a vector to store Mean Squared Error (MSE) for each lambda
+validation_mse_list <- numeric(length(lambda_seq))
+
+for (i in seq_along(lambda_seq)) {
+# Perform Ridge Regression
+ridge_model <- glmnet(
   x = X_train,
   y = y_train,
   alpha = 0,  # Alpha = 0 for Ridge Regression
-  nfolds = 5, # 5-fold cross-validation
-  standardize = TRUE
+  lambda = lambda_seq[i],
+  standardize = TRUE, #standardizes variables
 )
+# Predict on the validation set
+validation_predictions <- predict(ridge_model, newx = X_validation)
 
-#TODO  Best lambda value
-best_lambda <- ridge_model$lambda.min
-cat("Best lambda:", best_lambda, "\n")
+# Calculate Mean Squared Error (MSE) on the validation set
+validation_mse_list[i] <- mean((y_validation - validation_predictions)^2)
+}
 
-# Plot cross-validation results
-plot(ridge_model)
+best_lambda_idx <- which.min(validation_mse_list)
+best_lambda <- lambda_seq[best_lambda_idx]
+# Best lambda identified based on validation set: 0.01 
+#Validation MSE for best lambda: 0.001573263 
 
-#TODO what is parameter alpha
-# Train Ridge Regression model using the best lambda
+# Plot for MSE
+plot(
+  x = log10(lambda_seq),
+  y = validation_mse_list,
+  type = "b",
+  pch = 19,
+  col = "blue",
+  xlab = "log10(Lambda)",
+  ylab = "Validation MSE",
+  main = "Validation MSE for Different Lambda Values"
+)
+abline(v = log10(best_lambda), col = "red", lty = 2)
+
+################################################################
+######################## Data Evaluations ######################
+################################################################
+
+##der code ab hier ist noch alt also keine ahnungs obs passt habs nicht mehr überprüft
+
+#https://www.r-bloggers.com/2020/05/simple-guide-to-ridge-regression-in-r/
+
 final_ridge_model <- glmnet(
   x = X_train,
   y = y_train,
   alpha = 0,
-  lambda = best_lambda
+  lambda = best_lambda,
+  standardize = TRUE
 )
-
-# Predictions and Performance Evaluation
-# On validation set
-predictions_validation <- predict(final_ridge_model, s = best_lambda, newx = X_validation)
-validation_rmse <- sqrt(mean((y_validation - predictions_validation)^2))
-cat("Validation RMSE:", validation_rmse, "\n")
-
-# On test set
-predictions_test <- predict(final_ridge_model, s = best_lambda, newx = X_test)
-test_rmse <- sqrt(mean((y_test - predictions_test)^2))
-cat("Test RMSE:", test_rmse, "\n")
-
-# Visualizing Ridge Regression Coefficients
-ridge_coefficients <- as.data.frame(as.matrix(coef(final_ridge_model)))
-ridge_coefficients <- ridge_coefficients[-1, , drop = FALSE] # Remove intercept
-names(ridge_coefficients) <- "Coefficient"
-
-ggplot(ridge_coefficients, aes(x = reorder(rownames(ridge_coefficients), Coefficient), y = Coefficient)) +
-  geom_bar(stat = "identity", fill = "skyblue") +
-  coord_flip() +
-  labs(title = "Ridge Regression Coefficients", x = "Feature", y = "Coefficient")
-
-# Hyperparameter Tuning
-# Try a range of lambda values and compare performance
-lambda_values <- 10^seq(-4, 2, length = 100) # Generate a sequence of lambda values
-ridge_tuning <- glmnet(
-  x = X_train,
-  y = y_train,
-  alpha = 0,
-  lambda = lambda_values
-)
-
-# Evaluate RMSE for each lambda on validation data
-validation_rmse_values <- sapply(lambda_values, function(l) {
-  predictions <- predict(ridge_tuning, s = l, newx = X_validation)
-  sqrt(mean((y_validation - predictions)^2))
-})
-
-# Find the best lambda based on validation RMSE
-optimal_lambda <- lambda_values[which.min(validation_rmse_values)]
-cat("Optimal lambda from validation set:", optimal_lambda, "\n")
-
-# Visualize RMSE vs Lambda
-plot(lambda_values, validation_rmse_values, type = "b", log = "x", col = "blue",
-     xlab = "Lambda (log scale)", ylab = "Validation RMSE",
-     main = "Ridge Regression Hyperparameter Tuning")
-
-colSums(is.na(team_data))
-
-# Train the final model with the optimal lambda
-final_model <- glmnet(X_train, y_train, alpha = 0, lambda = optimal_lambda)
 
 # Test set performance
-final_predictions <- predict(final_model, s = optimal_lambda, newx = X_test)
+final_predictions <- predict(final_ridge_model, s = best_lambda, newx = X_test)
 final_rmse <- sqrt(mean((y_test - final_predictions)^2))
 cat("Final Test RMSE with optimal lambda:", final_rmse, "\n")
 
