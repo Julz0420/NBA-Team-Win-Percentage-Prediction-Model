@@ -112,7 +112,7 @@ library(tidyr)
 #MultiLinear Regression and Decision Tree Regression?
 
 # Step 1: Randomly split data into train/validation/test sets stratified by win_percent
-set.seed(74) # For reproducibility
+set.seed(123) # For reproducibility
 train_idx <- createDataPartition(team_data$win_percent, p = 0.7, list = FALSE) # 70% for training
 train_data <- team_data[train_idx, ]
 temp_data <- team_data[-train_idx, ]
@@ -137,25 +137,25 @@ lambda_seq <- 10^seq(2, -2, by = -.1)
 validation_mse_list <- numeric(length(lambda_seq))
 
 for (i in seq_along(lambda_seq)) {
-# Perform Ridge Regression
-ridge_model <- glmnet(
-  x = X_train,
-  y = y_train,
-  alpha = 0,  # Alpha = 0 for Ridge Regression
-  lambda = lambda_seq[i],
-  standardize = TRUE, #standardizes variables
-)
-# Predict on the validation set
-validation_predictions <- predict(ridge_model, newx = X_validation)
-
-# Calculate Mean Squared Error (MSE) on the validation set
-validation_mse_list[i] <- mean((y_validation - validation_predictions)^2)
+  # Perform Ridge Regression
+  ridge_model <- glmnet(
+    x = X_train,
+    y = y_train,
+    alpha = 0,  # Alpha = 0 for Ridge Regression
+    lambda = lambda_seq[i],
+    standardize = TRUE, # standardizes variables
+  )
+  # Predict on the validation set
+  validation_predictions <- predict(ridge_model, newx = X_validation)
+  
+  # Calculate Mean Squared Error (MSE) on the validation set
+  validation_mse_list[i] <- mean((y_validation - validation_predictions)^2)
 }
 
 best_lambda_idx <- which.min(validation_mse_list)
 best_lambda <- lambda_seq[best_lambda_idx]
 # Best lambda identified based on validation set: 0.01 
-#Validation MSE for best lambda: 0.001573263 
+# Validation MSE for best lambda: 0.001573263 
 
 # Plot for MSE
 plot(
@@ -212,3 +212,58 @@ ggplot(results_df, aes(x = Actual, y = Predicted)) +
     axis.text = element_text(size = 12),
     axis.title = element_text(size = 14)
   )
+
+
+
+######################################################
+# Re-train the model with identical hyper-parameters #
+######################################################
+
+x_train_validation <- rbind(X_train, X_validation)
+y_train_validation <- c(y_train, y_validation)
+
+ridge_model_retrained <- glmnet(
+  x = x_train_validation,
+  y = y_train_validation,
+  alpha = 0,
+  lambda = best_lambda,
+  standardize = TRUE
+)
+
+retrained_predictions <- predict(ridge_model_retrained, newx = X_test, s = best_lambda)
+rmse_retrained <- sqrt(mean((y_test - retrained_predictions)^2))
+cat("Final Test RMSE with optimal lambda (retrained):", rmse_retrained, "\n")
+# ein stück schlechter? ganz mininmal (0.0001 schlechter)
+
+
+
+#############################################################################
+# base-line performance of a trivial acceptor/rejecter or random classifier #
+#############################################################################
+
+trivial_acceptor_accuracy <- mean(team_data$win_percent, na.rm = TRUE)
+trivial_rejector_accuracy <- 1 - average_winning_percentage
+
+cat(paste("trivial acceptor:", trivial_acceptor_accuracy, "\ntrivial rejecter:", trivial_rejector_accuracy))
+
+# calculate rmse of trivial acceptor
+
+rmse_trivial_acceptor <- sqrt(mean((team_data$win_percent - trivial_acceptor_accuracy)^2, na.rm = TRUE))
+
+cat(paste("rmse of trivial acceptor:", rmse_trivial_acceptor))
+cat(paste("difference to rmse of our model:", rmse_retrained - rmse_trivial_acceptor))
+
+# compare performances according to the per-class level
+# confusion matrix
+
+team_data_classes <- cut(validation_data$win_percent, 
+                         breaks = c(-Inf, 0.4, 0.6, Inf),
+                         labels = c("low", "medium", "high"))
+
+predicted_values_classes <- cut(predict(final_ridge_model, s = best_lambda, newx = X_validation),
+                                breaks = c(-Inf, 0.4, 0.6, Inf),
+                                labels = c("low", "medium", "high"))
+
+conf_matrix <- table(team_data_classes, predicted_values_classes)
+
+print(conf_matrix)
