@@ -1,6 +1,7 @@
 # Load necessary libraries
 library(tidyverse)
 library(corrplot)
+library(tidyr)
 
 # Import CSV file
 team_data <- read.csv("Team Summaries.csv")
@@ -36,7 +37,7 @@ cor_matrix <- cor(numeric_cols, use = "complete.obs")
 
 # Plot the correlation matrix
 corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.8, 
-         title = "Correlation Matrix of Numeric Variables", mar=c(0,0,1,0))
+         mar=c(0,0,1,0))
 
 # Visual exploration: scatter plot of offensive rating vs. defensive rating
 ggplot(team_data, aes(x = o_rtg, y = d_rtg, color = playoffs)) +
@@ -113,8 +114,7 @@ attributes_long <- attributes %>%
 ggplot(attributes_long, aes(x = season, y = Value)) +
   geom_line() +
   facet_wrap(~ Attribute, scales = "free_y") +
-  labs(title = "Various Attributes Over Seasons",
-       x = "Season",
+  labs(x = "Season",
        y = "Value") +
   theme_minimal()
 
@@ -131,4 +131,53 @@ ggplot(team_data_long, aes(x = value)) +
   geom_histogram(bins = 30, fill = "skyblue", color = "black") +
   facet_wrap(~ attribute, scales = "free") +
   theme_minimal() +
-  labs(title = "Distribution of Each Attribute", x = "Value", y = "Frequency")
+  labs(x = "Value", y = "Frequency")
+
+#######################TO show if data is approximately linear ##############
+####Test for suitability of Linear Regression ################
+# Load necessary libraries
+library(ggplot2)
+library(corrplot)
+
+# Plot each feature against win_percent to visually check linearity
+# Selecting a subset of features for visualization
+features_to_plot <- c("age", "srs", "o_rtg", "pace", "f_tr")
+
+# Create a list of plots
+plots <- lapply(features_to_plot, function(f) {
+  ggplot(team_data, aes_string(x = f, y = "win_percent")) + 
+    geom_point() + 
+    geom_smooth(method = "lm", col = "red") + 
+    theme_minimal() +
+    ggtitle(paste("Scatter plot of", f, "vs Win Percent"))
+})
+
+# Display all plots together
+library(gridExtra)
+grid.arrange(grobs = plots, ncol = 2)
+
+# Now, fit a linear regression model and plot residuals
+lm_model <- lm(win_percent ~ age + srs + o_rtg + pace + f_tr, data = team_data)
+
+# Residual vs Fitted plot
+ggplot(data.frame(fitted = fitted(lm_model), residuals = residuals(lm_model)), 
+       aes(x = fitted, y = residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  theme_minimal() +
+  ggtitle("Residuals vs Fitted values (Linear Regression Model)")
+## indicates linearity it seems like. 
+# residual doesnt change with fitted values, and the spread is even
+#https://stats.stackexchange.com/questions/76226/interpreting-the-residuals-vs-fitted-values-plot-for-verifying-the-assumptions
+
+# QQ plot of residuals to check for normality
+qqnorm(residuals(lm_model))
+qqline(residuals(lm_model), col = "red")
+
+# Histogram of residuals
+ggplot(data.frame(residuals = residuals(lm_model)), aes(x = residuals)) + 
+  geom_histogram(binwidth = 0.02, fill = "blue", color = "black", alpha = 0.7) +
+  theme_minimal() + 
+  ggtitle("Histogram of Residuals")
+
+####Test for suitability of Linear Regression ################
