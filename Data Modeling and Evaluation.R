@@ -96,7 +96,7 @@ team_data_copy <- subset(team_data_copy, select = -drb_percent_mean)
 
 # Exclude columns
 
-team_data <- team_data_copy %>% select(-w, -l, -pw, -pl, -attend, -attend_g, -season) %>% select_if(is.numeric)
+team_data <- team_data_copy %>% select(-w, -l, -pw, -pl, -attend, -attend_g, -season, -srs, -mov, -n_rtg, -sos) %>% select_if(is.numeric)
 
 
 ################################################################
@@ -131,7 +131,7 @@ y_test <- test_data$win_percent
 # Train Ridge Regression models for each lambda and evaluate on the validation set
 
 # Setting the range of lambda values
-lambda_seq <- 10^seq(2, -2, by = -.1)
+lambda_seq <- 10^seq(3, -3, by = -.1)
 
 # Initialize a vector to store Mean Squared Error (MSE) for each lambda
 validation_mse_list <- numeric(length(lambda_seq))
@@ -154,8 +154,9 @@ for (i in seq_along(lambda_seq)) {
 
 best_lambda_idx <- which.min(validation_mse_list)
 best_lambda <- lambda_seq[best_lambda_idx]
-# Best lambda identified based on validation set: 0.01 
-# Validation MSE for best lambda: 0.001573263 
+best_validation_mse <- validation_mse_list[best_lambda_idx]
+# Best lambda identified based on validation set: 0.002511886
+# Validation MSE for best lambda: 0.00157269
 
 # Plot for MSE
 plot(
@@ -240,8 +241,8 @@ cat("Final Test RMSE with optimal lambda (retrained):", rmse_retrained, "\n")
 # base-line performance of a trivial acceptor/rejecter or random classifier #
 #############################################################################
 
-trivial_acceptor_accuracy <- mean(team_data$win_percent, na.rm = TRUE)
-trivial_rejector_accuracy <- 1 - average_winning_percentage
+trivial_acceptor_accuracy <- 0.5
+trivial_rejector_accuracy <- 1 - trivial_acceptor_accuracy
 
 cat(paste("trivial acceptor:", trivial_acceptor_accuracy, "\ntrivial rejecter:", trivial_rejector_accuracy))
 
@@ -266,3 +267,40 @@ predicted_values_classes <- cut(predict(final_ridge_model, s = best_lambda, newx
 conf_matrix <- table(team_data_classes, predicted_values_classes)
 
 print(conf_matrix)
+
+######################################################
+#                 Feature Importance                 #
+######################################################
+
+# Extract feature names
+feature_names <- colnames(X_train)
+
+# Extract coefficients for the best lambda from the final Ridge Regression model
+ridge_coefficients <- coef(final_ridge_model, s = best_lambda)
+
+# Convert coefficients to a data frame for easier manipulation and visualization
+coefficients_df <- data.frame(
+  Feature = rownames(ridge_coefficients)[-1], # Exclude the intercept
+  Coefficient = as.vector(ridge_coefficients[-1])
+)
+
+# Calculate the absolute values of coefficients for feature importance
+coefficients_df <- coefficients_df %>%
+  mutate(Importance = abs(Coefficient)) %>%
+  arrange(desc(Importance))
+
+# Plot Feature Importance
+ggplot(coefficients_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() +
+  labs(
+    title = "Feature Importance (Ridge Regression)",
+    x = "Feature",
+    y = "Importance"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )

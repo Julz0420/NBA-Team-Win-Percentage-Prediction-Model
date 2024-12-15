@@ -107,7 +107,7 @@ team_data_copy <- subset(team_data_copy, select = -drb_percent_mean)
 
 # Exclude columns explanation!!!
 
-team_data <- team_data %>% select(-w, -l, -pw, -pl, -attend, -attend_g, -season) %>% select_if(is.numeric)
+team_data <- team_data_copy %>% select(-w, -l, -pw, -pl, -attend, -attend_g, -season, -srs, -mov, -n_rtg, -sos) %>% select_if(is.numeric)
 
 
 
