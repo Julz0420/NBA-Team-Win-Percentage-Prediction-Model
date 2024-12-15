@@ -96,7 +96,7 @@ team_data_copy <- subset(team_data_copy, select = -drb_percent_mean)
 
 # Exclude columns
 
-team_data <- team_data_copy %>% select(-w, -l, -pw, -pl, -attend, -attend_g, -season) %>% select_if(is.numeric)
+team_data <- team_data_copy %>% select(-w, -l, -pw, -pl, -attend, -attend_g, -season, -srs, -mov, -n_rtg, -sos) %>% select_if(is.numeric)
 
 
 ################################################################
@@ -235,34 +235,39 @@ cat("Final Test RMSE with optimal lambda (retrained):", rmse_retrained, "\n")
 # ein stück schlechter? ganz mininmal (0.0001 schlechter)
 
 
+######################################################
+#                 Feature Importance                 #
+######################################################
 
-#############################################################################
-# base-line performance of a trivial acceptor/rejecter or random classifier #
-#############################################################################
+# Extract feature names
+feature_names <- colnames(X_train)
 
-trivial_acceptor_accuracy <- mean(team_data$win_percent, na.rm = TRUE)
-trivial_rejector_accuracy <- 1 - average_winning_percentage
+# Extract coefficients for the best lambda from the final Ridge Regression model
+ridge_coefficients <- coef(final_ridge_model, s = best_lambda)
 
-cat(paste("trivial acceptor:", trivial_acceptor_accuracy, "\ntrivial rejecter:", trivial_rejector_accuracy))
+# Convert coefficients to a data frame for easier manipulation and visualization
+coefficients_df <- data.frame(
+  Feature = rownames(ridge_coefficients)[-1], # Exclude the intercept
+  Coefficient = as.vector(ridge_coefficients[-1])
+)
 
-# calculate rmse of trivial acceptor
+# Calculate the absolute values of coefficients for feature importance
+coefficients_df <- coefficients_df %>%
+  mutate(Importance = abs(Coefficient)) %>%
+  arrange(desc(Importance))
 
-rmse_trivial_acceptor <- sqrt(mean((team_data$win_percent - trivial_acceptor_accuracy)^2, na.rm = TRUE))
-
-cat(paste("rmse of trivial acceptor:", rmse_trivial_acceptor))
-cat(paste("difference to rmse of our model:", rmse_retrained - rmse_trivial_acceptor))
-
-# compare performances according to the per-class level
-# confusion matrix
-
-team_data_classes <- cut(validation_data$win_percent, 
-                         breaks = c(-Inf, 0.4, 0.6, Inf),
-                         labels = c("low", "medium", "high"))
-
-predicted_values_classes <- cut(predict(final_ridge_model, s = best_lambda, newx = X_validation),
-                                breaks = c(-Inf, 0.4, 0.6, Inf),
-                                labels = c("low", "medium", "high"))
-
-conf_matrix <- table(team_data_classes, predicted_values_classes)
-
-print(conf_matrix)
+# Plot Feature Importance
+ggplot(coefficients_df, aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() +
+  labs(
+    title = "Feature Importance (Ridge Regression)",
+    x = "Feature",
+    y = "Importance"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 14)
+  )
